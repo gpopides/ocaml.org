@@ -1,3 +1,5 @@
+open Data_intf.News
+
 type metadata = {
   title : string;
   description : string;
@@ -5,23 +7,10 @@ type metadata = {
   tags : string list;
   authors : string list option;
 }
-[@@deriving of_yaml]
-
-type t = {
-  title : string;
-  description : string;
-  date : string;
-  slug : string;
-  tags : string list;
-  body_html : string;
-  authors : string list;
-}
 [@@deriving
-  stable_record ~version:metadata ~modify:[ authors ]
-    ~remove:[ slug; body_html ],
-    show { with_path = false }]
+  of_yaml, stable_record ~version:t ~modify:[ authors ] ~add:[ slug; body_html ]]
 
-let of_metadata m = of_metadata m ~modify_authors:(Option.value ~default:[])
+let of_metadata m = metadata_to_t m ~modify_authors:(Option.value ~default:[])
 
 let decode (fname, (head, body)) =
   let slug = Filename.basename (Filename.remove_extension fname) in
@@ -35,23 +24,37 @@ let decode (fname, (head, body)) =
   Result.map (of_metadata ~slug ~body_html) metadata
 
 let all () =
-  Utils.map_files decode "news/*/*.md"
-  |> List.sort (fun a b -> String.compare b.date a.date)
+  Utils.map_md_files decode "news/*/*.md"
+  |> List.sort (fun (a : t) (b : t) -> String.compare b.date a.date)
 
 let template () =
-  Format.asprintf
-    {|
-type t =
-  { title : string
-  ; slug : string
-  ; description : string
-  ; date : string
-  ; tags : string list
-  ; body_html : string
-  ; authors: string list
-  }
-  
+  Format.asprintf {|
+include Data_intf.News
 let all = %a
 |}
     (Fmt.brackets (Fmt.list pp ~sep:Fmt.semi))
     (all ())
+
+module RssFeed = struct
+  let feed_authors authors =
+    match List.map Syndic.Atom.author authors with
+    | x :: xs -> (x, xs)
+    | [] -> (Syndic.Atom.author "OCaml News", [])
+
+  let create_entry (post : t) =
+    let content = Syndic.Atom.Html (None, post.body_html) in
+    let id = Uri.of_string ("https://ocaml.org/news/" ^ post.slug) in
+    let authors = feed_authors post.authors in
+    let updated = Syndic.Date.of_rfc3339 (post.date ^ "T00:00:00Z") in
+    Syndic.Atom.entry ~content ~id ~authors ~title:(Syndic.Atom.Text post.title)
+      ~updated
+      ~links:[ Syndic.Atom.link id ]
+      ()
+
+  let create_feed () =
+    let open Rss in
+    all ()
+    |> create_entries ~create_entry ~days:90
+    |> entries_to_feed ~id:"news.xml" ~title:"OCaml News @ OCaml.org"
+    |> feed_to_string
+end

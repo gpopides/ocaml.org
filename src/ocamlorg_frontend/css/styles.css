@@ -81,7 +81,7 @@ body {
   height: 7px;
 }
 
-.workshop-divider {
+.conference-divider {
   width: 2px;
 }
 
@@ -253,4 +253,8 @@ details summary svg svg {
 
 summary::-webkit-details-marker {
   display: none;
+}
+
+.overlay {
+  backdrop-filter: blur(1px);
 }

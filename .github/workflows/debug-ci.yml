@@ -16,19 +16,19 @@ jobs:
           - macos-latest
           - ubuntu-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.14.1
+          - "4.14"
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: ${{ matrix.os != 'macos-latest' }}
           opam-repositories: |
-            pin: git+https://github.com/ocaml/opam-repository#8cc107f96e33a4601f7c39346eb19fbbe46486d3
+            pin: git+https://github.com/ocaml/opam-repository#c45f5bab71d3589f41f9603daca5acad14df0ab0
           opam-disable-sandboxing: true
 
       - name: Install system dependencies (Linux)
@@ -36,12 +36,15 @@ jobs:
         if: runner.os == 'Linux'
 
       - name: Install system dependencies (macOS)
-        run: brew install libev openssl@3.3 # Openssl is a workaround for https://github.com/ocaml/opam-repository/issues/19676
+        run: brew update && brew reinstall libev openssl@3 # Openssl is a workaround for https://github.com/ocaml/opam-repository/issues/19676
         if: runner.os == 'macOS'
 
       - name: Install opam dependencies
-        run: opam install --deps-only .
+        run: opam install --deps-only --with-test .
 
       - name: Build project
-        run: opam exec -- dune build
+        run: opam exec -- dune build @install
+
+      - name: Run tests
+        run: opam exec -- dune test
 

@@ -21,21 +21,20 @@ jobs:
         os:
           - ubuntu-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.14.1
+          - "4.14"
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler }}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: ${{ matrix.os != 'macos-latest' }}
           opam-repositories: |
-            pin: git+https://github.com/ocaml/opam-repository#8cc107f96e33a4601f7c39346eb19fbbe46486d3
+            pin: git+https://github.com/ocaml/opam-repository#c45f5bab71d3589f41f9603daca5acad14df0ab0
           opam-disable-sandboxing: true
-          opam-depext-flags: "--update"
 
       - name: Install olinkcheck
         run: opam install olinkcheck.~dev
@@ -57,7 +56,7 @@ jobs:
           opam exec -- olinkcheck --annotate md_with_yaml data/workshops --exclude-list=.github/workflows/exclude.txt
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           title: 'Check broken links'
           branch: 'broken-links'

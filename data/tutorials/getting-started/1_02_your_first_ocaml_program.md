@@ -32,6 +32,8 @@ Once you've completed this tutorial, you should be able to:
 How to work on several OCaml projects simultaneously is out of the scope of this tutorial. Currently (Summer 2023), this requires using opam local [_switches_](https://opam.ocaml.org/doc/man/opam-switch.html). This allows handling different sets of dependencies per project. Check the Best Practices document on [Dependencies](https://ocaml.org/docs/managing-dependencies) addressing that matter for detailed instructions. This document was written and tested using a global switch, which is created by default when installing opam and can be ignored in the beginning.
 -->
 
+**Note**: The files illustrating this tutorial are available as a [Git repo](https://github.com/ocaml-web/ocamlorg-docs-your-first-program).
+
 ## Working Within an opam Switch
 
 When you installed OCaml, a global opam switch was created automatically. This tutorial can be completed while working inside this global opam switch.
@@ -85,7 +87,7 @@ let () = print_endline "Hello, World!"
 
 The project-wide metadata is available in the `dune-project` file. It contains information about the project name, dependencies, and global setup.
 
-Each folder containing source files that need to be built must contain a `dune` file describing how.
+Each directory containing source files that need to be built must contain a `dune` file describing how.
 
 This builds the project:
 ```shell
@@ -171,7 +173,7 @@ module Hello : sig val v : string end
 
 Now exit `utop` with `Ctrl-D` or enter `#quit;;` before going to the next section.
 
-**Note**: If you add a file named `hello.ml` in the `lib` folder, Dune will consider this the whole `Hello` module and it will make `En` unreachable. If you want your module `En` to be visible, you need to add this in your `hello.ml` file:
+**Note**: If you add a file named `hello.ml` in the `lib` directory, Dune will consider this the whole `Hello` module and it will make `En` unreachable. If you want your module `En` to be visible, you need to add this in your `hello.ml` file:
 ```ocaml
 module En = En
 ```
@@ -284,23 +286,20 @@ $ opam exec -- dune exec hello
 
 <!-- https://github.com/ocaml/ocaml.org/pull/2249 -->
 **Note**: This example was successfully tested on Windows using DkML 2.1.0. Run `dkml version` to see the version.
- 
-Let's assume we'd like `hello` to display its output as if it was a list of strings in UTop: `["hello"; "using"; "an"; "opam"; "library"]`. To do that, we need a function turning a `string list` into a `string`, adding brackets, spaces, and commas. Instead of defining it ourselves, let's generate it automatically with a package. We'll use [`ppx_show`](https://github.com/thierry-martinez/ppx_show), which was written by [Thierry Martinez.](https://github.com/thierry-martinez) Here is how to install it:
+
+Let's assume we'd like `hello` to display its output as if it was a list of strings in UTop: `["hello"; "using"; "an"; "opam"; "library"]`. To do that, we need a function turning a `string list` into a `string`, adding brackets, spaces, and commas. Instead of defining it ourselves, let's generate it automatically with a package. We'll use [`ppx_deriving`](https://github.com/ocaml-ppx/ppx_deriving). Here is how to install it:
 ```shell
-$ opam install ppx_show
+$ opam install ppx_deriving
 ```
 
 Dune needs to be told how to use it, which is done in the `lib/dune` file. Note that this is different from the `bin/dune` file that you edited earlier! Open up the `lib/dune` file, and edit it to look like this:
 ```lisp
 (library
  (name hello)
- (preprocess (pps ppx_show))
- (libraries ppx_show.runtime))
+ (preprocess (pps ppx_deriving.show)))
 ```
 
-Here is the meaning of the two new lines:
-- `(libraries ppx_show.runtime)` means our project is using definitions found in the `ppx_show.runtime` library, provided by the package `ppx_show`;
-- `(preprocess (pps ppx_show))` means that before compilation the source needs to be transformed using the preprocessor provided by the package `ppx_show`.
+The line `(preprocess (pps ppx_deriving.show))` means that before compilation the source needs to be transformed using the preprocessor `show` provided by the package `ppx_deriving`. It is not required to write `(libraries ppx_deriving)`, Dune infers that from the `preprocess` stanza.
 
 The files `lib/en.ml` and `lib/en.mli` need to be edited, too:
 
@@ -312,9 +311,7 @@ val v : string list
 
 **`lib/en.ml`**
 ```ocaml
-let string_list_pp = [%show: string list]
-
-let string_of_string_list = Format.asprintf "@[%a@]" string_list_pp
+let string_of_string_list = [%show: string list]
 
 let v = String.split_on_char ' ' "Hello using an opam library"
 ```
@@ -322,7 +319,6 @@ let v = String.split_on_char ' ' "Hello using an opam library"
 Let's read this from the bottom up:
 - `v` has the type `string list`. We're using `String.split_on_char` to turn a `string` into a `string list` by splitting the string on space characters.
 - `string_of_string_list` has type `string list -> string`. This converts a list of strings into a string, applying the expected formatting.
-- `string_list_pp` has type `Format.formatter -> string list -> unit`, which means it is a custom formatter that turns a `string list` into a `string` (this type does not appear in the signature).
 
 Finally, you'll also need to edit `bin/main.ml`
 ```ocaml
@@ -337,9 +333,9 @@ $ opam exec -- dune exec hello
 
 ## A Sneak-Peek at Dune as a One-Stop Shop
 
-This section explains the purpose of the files and folders created by `dune proj init` which haven't been mentioned earlier.
+This section explains the purpose of the files and directories created by `dune proj init` which haven't been mentioned earlier.
 
-Along the history of OCaml, several build systems have been used. As of writing this tutorial (Summer 2023), Dune is the mainstream one, which is why it is used in the tutorial. Dune automatically extracts the dependencies between the modules from the files and compiles them in a compatible order. It only needs one `dune` file per folder where there is something to build. The three folders created by `dune proj init` have the following purposes:
+Along the history of OCaml, several build systems have been used. As of writing this tutorial (Summer 2023), Dune is the mainstream one, which is why it is used in the tutorial. Dune automatically extracts the dependencies between the modules from the files and compiles them in a compatible order. It only needs one `dune` file per directory where there is something to build. The three directories created by `dune proj init` have the following purposes:
 - `bin`: executable programs
 - `lib`: libraries
 - `test`: tests
@@ -350,11 +346,11 @@ There will be a tutorial dedicated to Dune. This tutorial will present the many 
 - Producing packaging metadata (here in `hello.opam`)
 - Creating arbitrary files using all-purpose rules
 
-The `_build` folder is where Dune stores all the files it generates. It can be deleted at any time, but subsequent builds will recreate it.
+The `_build` directory is where Dune stores all the files it generates. It can be deleted at any time, but subsequent builds will recreate it.
 
 ## Minimum Setup
 
-In this last section, let's create a bare minimum project, highlighting what's really needed for Dune to work. We begin by creating a fresh project folder:
+In this last section, let's create a bare minimum project, highlighting what's really needed for Dune to work. We begin by creating a fresh project directory:
 ```shell
 $ cd ..
 $ mkdir minimo

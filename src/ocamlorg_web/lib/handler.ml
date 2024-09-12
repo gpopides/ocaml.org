@@ -50,21 +50,24 @@ let learn_platform req =
   Dream.redirect req (Url.tutorial (List.hd tutorials).slug)
 
 let community _req =
+  let query = Dream.query _req "e" in
+  let string_to_event_type s =
+    match s with
+    | "meetup" -> Some Data.Event.Meetup
+    | "conference" -> Some Data.Event.Conference
+    | "seminar" -> Some Data.Event.Seminar
+    | "hackathon" -> Some Data.Event.Hackathon
+    | "retreat" -> Some Data.Event.Retreat
+    | _ -> None
+  in
+  let selected_event =
+    match query with Some s -> string_to_event_type s | _ -> None
+  in
   let current_date =
     let open Unix in
     let tm = localtime (Unix.gettimeofday ()) in
     Format.asprintf "%04d-%02d-%02d" (tm.tm_year + 1900) (tm.tm_mon + 1)
       tm.tm_mday
-  in
-  let old_workshops =
-    List.filter
-      (fun (w : Data.Workshop.t) -> w.date < current_date)
-      Data.Workshop.all
-  in
-  let upcoming_workshops =
-    List.filter
-      (fun (w : Data.Workshop.t) -> w.date >= current_date)
-      Data.Workshop.all
   in
   let upcoming_events =
     List.filter
@@ -75,15 +78,66 @@ let community _req =
               |> Option.map (fun (e : Data.Event.utc_datetime) -> e.yyyy_mm_dd)
               |> Option.get >= current_date)
       Data.Event.all
+    |> (match query with
+       | None | Some "All" -> fun e -> e
+       | _ ->
+           List.filter (fun (event : Data.Event.t) ->
+               match selected_event with
+               | None -> false
+               | Some eventType -> event.event_type = eventType))
     |> Ocamlorg.Import.List.take 6
   in
-  let resources = Data.Resource.featured in
+  let event_types =
+    Data.Event.all
+    |> List.map (fun (event : Data.Event.t) ->
+           match event.event_type with
+           | Meetup -> "Meetup"
+           | Conference -> "Conference"
+           | Seminar -> "Seminar"
+           | Hackathon -> "Hackathon"
+           | Retreat -> "Retreat")
+    |> List.sort_uniq String.compare
+  in
+  let events = (upcoming_events, event_types) in
+  let old_conferences =
+    match
+      List.filter
+        (fun (w : Data.Conference.t) -> w.date < current_date)
+        Data.Conference.all
+    with
+    | [] -> []
+    | x :: _ -> [ x ]
+  in
+  let jobs =
+    match Data.Job.all with
+    | [] -> []
+    | [ a ] -> [ a ]
+    | [ a; b ] -> [ a; b ]
+    | a :: b :: c :: _ -> [ a; b; c ]
+  in
+  let jobs_with_count = (jobs, List.length Data.Job.all) in
+  let outreachy_latest_project =
+    match Data.Outreachy.all with
+    | [] -> []
+    | first_round :: _ -> (
+        match first_round.projects with
+        | [] -> []
+        | first_project :: _ -> [ (first_round.name, first_project) ])
+  in
   Dream.html
-    (Ocamlorg_frontend.community ~old_workshops ~upcoming_workshops
-       ~upcoming_events ~resources)
+    (Ocamlorg_frontend.community ~old_conferences ~outreachy_latest_project
+       ?selected_event:query ~events jobs_with_count)
+
+type common_event =
+  [ `Event of Data.Event.t | `Recurring of Data.Event.recurring_event ]
 
 let events _req =
+  let event_type = Dream.query _req "event_type" in
+  let event_location = Dream.query _req "event_location" in
+  let recurring_event_type = Dream.query _req "recurring_event_type" in
+  let recurring_event_location = Dream.query _req "recurring_event_location" in
   let recurring_events = Data.Event.RecurringEvent.all in
+
   let current_date =
     let open Unix in
     let tm = localtime (Unix.gettimeofday ()) in
@@ -99,14 +153,91 @@ let events _req =
               |> Option.map (fun (e : Data.Event.utc_datetime) -> e.yyyy_mm_dd)
               |> Option.get >= current_date)
       Data.Event.all
-    |> Ocamlorg.Import.List.take 6
   in
-  Dream.html (Ocamlorg_frontend.events ~recurring_events ~upcoming_events)
+  let string_of_event_type = function
+    | Data.Event.Meetup -> "Meetup"
+    | Data.Event.Conference -> "Conference"
+    | Data.Event.Seminar -> "Seminar"
+    | Data.Event.Hackathon -> "Hackathon"
+    | Data.Event.Retreat -> "Retreat"
+  in
+  let extract_event_types (type a) (events : a list)
+      (get_event_type : a -> Data.Event.event_type) =
+    events
+    |> List.map (fun event -> string_of_event_type (get_event_type event))
+    |> List.sort_uniq String.compare
+  in
+  let upcoming_event_types =
+    extract_event_types upcoming_events (fun event -> event.event_type)
+  in
+  let recurring_event_types =
+    extract_event_types recurring_events (fun event -> event.event_type)
+  in
+  let recurring_event_locations =
+    Data.Event.all
+    |> List.map (fun (event : Data.Event.t) -> event.city)
+    |> List.sort_uniq String.compare
+  in
+  let upcoming_event_locations =
+    upcoming_events
+    |> List.map (fun (event : Data.Event.t) -> event.city)
+    |> List.sort_uniq String.compare
+  in
+  let matches_criteria (event : common_event) event_type location =
+    let event_type_value, city =
+      match event with
+      | `Event e -> (e.event_type, e.city)
+      | `Recurring e -> (e.event_type, e.city)
+    in
+    let matches_type =
+      match event_type with
+      | None | Some "All" -> true
+      | Some e when e = "Meetup" -> event_type_value = Data.Event.Meetup
+      | Some e when e = "Conference" -> event_type_value = Data.Event.Conference
+      | Some e when e = "Seminar" -> event_type_value = Data.Event.Seminar
+      | Some e when e = "Hackathon" -> event_type_value = Data.Event.Hackathon
+      | Some e when e = "Retreat" -> event_type_value = Data.Event.Retreat
+      | Some _ -> true
+    in
+    let matches_location =
+      match location with
+      | Some l when l = "All" -> true
+      | Some l -> city = l
+      | None -> true
+    in
+    matches_type && matches_location
+  in
+
+  let filtered_upcoming_events =
+    List.filter_map
+      (fun event ->
+        let event = `Event event in
+        if matches_criteria event event_type event_location then
+          match event with `Event e -> Some e | _ -> None
+        else None)
+      upcoming_events
+  in
+  let filtered_recurring_events =
+    List.filter_map
+      (fun event ->
+        let event = `Recurring event in
+        if matches_criteria event recurring_event_type recurring_event_location
+        then match event with `Recurring e -> Some e | _ -> None
+        else None)
+      recurring_events
+  in
+
+  Dream.html
+    (Ocamlorg_frontend.events ~upcoming:filtered_upcoming_events
+       ~recurring_events:filtered_recurring_events ?event_type ?event_location
+       ?recurring_event_type ?recurring_event_location ~upcoming_event_types
+       ~recurring_event_types upcoming_event_locations recurring_event_locations)
 
 let paginate ~req ~n items =
   let items_per_page = n in
   let page =
-    Dream.query req "p" |> Option.map int_of_string |> Option.value ~default:1
+    Option.bind (Dream.query req "p") int_of_string_opt
+    |> Option.value ~default:1
   in
   let number_of_pages =
     int_of_float
@@ -263,74 +394,60 @@ let release req =
   let</>? version = Data.Release.get_by_version version in
   Dream.html (Ocamlorg_frontend.release version)
 
-let workshop req =
-  let watch_ocamlorg_embed =
-    let presentations =
-      List.concat_map
-        (fun (w : Data.Workshop.t) -> w.presentations)
-        Data.Workshop.all
-    in
-    let rec get_last = function
-      | [] -> ""
-      | [ x ] -> x
-      | _ :: xs -> get_last xs
-    in
-    let watch =
-      List.map
-        (fun (w : Data.Watch.t) ->
-          String.split_on_char '/' w.embed_path |> get_last |> fun v -> (v, w))
-        Data.Watch.all
-    in
-    let tbl = Hashtbl.create 100 in
-    let add_video (p : Data.Workshop.presentation) =
-      match p.video with
-      | Some video ->
-          let uuid = String.split_on_char '/' video |> get_last in
-          let find (v, w) = if String.equal uuid v then Some w else None in
-          let w = List.find_map find watch in
-          Option.iter (fun w -> Hashtbl.add tbl p.title w) w
-      | None -> ()
-    in
-    List.iter add_video presentations;
-    tbl
+let conferences _req =
+  let past_conferences = Data.Conference.all in
+  let current_date =
+    let open Unix in
+    let tm = localtime (Unix.gettimeofday ()) in
+    Format.asprintf "%04d-%02d-%02d" (tm.tm_year + 1900) (tm.tm_mon + 1)
+      tm.tm_mday
   in
+  let upcoming_conferences =
+    List.filter
+      (fun (e : Data.Event.t) ->
+        e.event_type = Data.Event.Conference
+        && (e.starts.yyyy_mm_dd >= current_date
+           || Option.is_some e.ends
+              && e.ends
+                 |> Option.map (fun (e : Data.Event.utc_datetime) ->
+                        e.yyyy_mm_dd)
+                 |> Option.get >= current_date))
+      Data.Event.all
+    |> Ocamlorg.Import.List.take 6
+  in
+  Dream.html
+    (Ocamlorg_frontend.conferences ~upcoming_conferences past_conferences)
+
+let conference req =
   let slug = Dream.param req "id" in
-  let</>? workshop =
-    List.find_opt (fun (x : Data.Workshop.t) -> x.slug = slug) Data.Workshop.all
+  let</>? conference =
+    List.find_opt
+      (fun (x : Data.Conference.t) -> x.slug = slug)
+      Data.Conference.all
   in
-  Dream.html (Ocamlorg_frontend.workshop ~videos:watch_ocamlorg_embed workshop)
+  Dream.html (Ocamlorg_frontend.conference conference)
 
 let ocaml_planet req =
+  let category = Dream.query req "category" in
+  let matches_criteria (item : Data.Planet.entry) cat =
+    match cat with
+    | Some d when d = "All" -> true
+    | Some d when d = "Article" -> (
+        match item with BlogPost _ -> true | Video _ -> false)
+    | Some d when d = "Video" -> (
+        match item with BlogPost _ -> false | Video _ -> true)
+    | Some _ -> true
+    | None -> true
+  in
+  let filtered_entries =
+    Data.Planet.all |> List.filter (fun item -> matches_criteria item category)
+  in
   let page, number_of_pages, current_items =
-    paginate ~req ~n:10 Data.Planet.Post.all
+    paginate ~req ~n:10 filtered_entries
   in
   Dream.html
-    (Ocamlorg_frontend.ocaml_planet ~planet:current_items ~planet_page:page
-       ~planet_pages_number:number_of_pages)
-
-let local_blog req =
-  let source = Dream.param req "source" in
-  let</>? local_blog = Data.Planet.LocalBlog.get_by_id source in
-  Dream.html
-    (Ocamlorg_frontend.local_blog ~source:local_blog.source
-       ~posts:local_blog.posts)
-
-let blog_post req =
-  let source = Dream.param req "source" in
-  let slug = Dream.param req "slug" in
-  let</>? local_blog = Data.Planet.LocalBlog.get_by_id source in
-  match slug with
-  | "feed.xml" ->
-      Dream.respond
-        ~headers:[ ("Content-Type", "application/xml; charset=utf-8") ]
-        local_blog.rss_feed
-  | _ ->
-      let</>? post =
-        local_blog.posts
-        |> List.find_opt (fun (p : Data.Planet.Post.t) ->
-               String.equal p.slug slug)
-      in
-      Dream.html (Ocamlorg_frontend.blog_post post)
+    (Ocamlorg_frontend.ocaml_planet ~planet_page:page
+       ~planet_pages_number:number_of_pages ?category current_items)
 
 let news req =
   let page, number_of_pages, current_items =
@@ -581,6 +698,13 @@ module Package_helper = struct
                publication = v.publication;
              })
 
+  let search_index_digest ~kind state name =
+    let open Lwt.Syntax in
+    let* search_index_digest =
+      Ocamlorg_package.search_index_digest ~kind state name
+    in
+    search_index_digest |> Option.map Dream.to_base64url |> Lwt.return
+
   let frontend_package ?on_latest_url ?documentation_status state
       (package : Ocamlorg_package.t) : Ocamlorg_frontend.Package.package =
     let name = Ocamlorg_package.name package
@@ -599,7 +723,10 @@ module Package_helper = struct
     let package =
       if version = "latest" then Ocamlorg_package.get_latest t name
       else
-        Ocamlorg_package.get t name (Ocamlorg_package.Version.of_string version)
+        try
+          Ocamlorg_package.get t name
+            (Ocamlorg_package.Version.of_string version)
+        with _ -> None
     in
     package
     |> Option.map (fun package ->
@@ -671,6 +798,7 @@ let is_ocaml_yet t id req =
            category.packages)
     |> List.filter_map (fun (p : Data.Is_ocaml_yet.package) ->
            let name = Ocamlorg_package.Name.of_string p.name in
+           (* FIXME: Failure *)
            match Ocamlorg_package.get_latest t name with
            | Some x -> Some x
            | None ->
@@ -787,7 +915,9 @@ let packages_autocomplete_fragment t req =
   | _ -> Dream.html ""
 
 let package_overview t kind req =
-  let name = Ocamlorg_package.Name.of_string @@ Dream.param req "name" in
+  let</>? name =
+    Ocamlorg_package.Name.of_string_opt @@ Dream.param req "name"
+  in
   let version_from_url = Dream.param req "version" in
   let</>? package, frontend_package =
     Package_helper.of_name_version t name version_from_url
@@ -800,11 +930,8 @@ let package_overview t kind req =
   in
   let* sidebar_data = Package_helper.package_sidebar_data ~kind t package in
 
-  let* maybe_search_index = Ocamlorg_package.search_index ~kind package in
-  let search_index_digest =
-    Option.map
-      (fun idx -> idx |> Digest.string |> Dream.to_base64url)
-      maybe_search_index
+  let* search_index_digest =
+    Package_helper.search_index_digest ~kind t package
   in
 
   let package_info = Ocamlorg_package.info package in
@@ -832,8 +959,8 @@ let package_overview t kind req =
   let dev_dependencies, dependencies =
     dependencies
     |> List.partition
-         (fun (item : Ocamlorg_frontend.Package_overview.dependency_or_conflict)
-         ->
+         (fun
+           (item : Ocamlorg_frontend.Package_overview.dependency_or_conflict) ->
            let s = Option.value ~default:"" item.cstr in
            String.contains_s s "with-" || String.contains_s s "dev")
   in
@@ -920,7 +1047,9 @@ let package_overview t kind req =
        ~search_index_digest ~toc ~deps_and_conflicts frontend_package)
 
 let package_versions t _kind req =
-  let name = Ocamlorg_package.Name.of_string @@ Dream.param req "name" in
+  let</>? name =
+    Ocamlorg_package.Name.of_string_opt @@ Dream.param req "name"
+  in
   let version_from_url = Dream.param req "version" in
   let</>? _package, frontend_package =
     Package_helper.of_name_version t name version_from_url
@@ -928,7 +1057,9 @@ let package_versions t _kind req =
   Dream.html (Ocamlorg_frontend.package_versions frontend_package)
 
 let package_documentation t kind req =
-  let name = Ocamlorg_package.Name.of_string @@ Dream.param req "name" in
+  let</>? name =
+    Ocamlorg_package.Name.of_string_opt @@ Dream.param req "name"
+  in
   let version_from_url = Dream.param req "version" in
   let</>? package, frontend_package =
     Package_helper.of_name_version t name version_from_url
@@ -1009,11 +1140,8 @@ let package_documentation t kind req =
                  { title; href; kind = Library; children })
       in
       let* module_map = Ocamlorg_package.module_map ~kind package in
-      let* maybe_search_index = Ocamlorg_package.search_index ~kind package in
-      let search_index_digest =
-        Option.map
-          (fun idx -> idx |> Digest.string |> Dream.to_base64url)
-          maybe_search_index
+      let* search_index_digest =
+        Package_helper.search_index_digest ~kind t package
       in
       let toc = Package_helper.frontend_toc doc.toc in
       let (maptoc : Ocamlorg_frontend.Navmap.toc list) =
@@ -1065,7 +1193,9 @@ let package_documentation t kind req =
            ~content:doc.content frontend_package)
 
 let package_file t kind req =
-  let name = Ocamlorg_package.Name.of_string @@ Dream.param req "name" in
+  let</>? name =
+    Ocamlorg_package.Name.of_string_opt @@ Dream.param req "name"
+  in
   let version_from_url = Dream.param req "version" in
   let</>? package, frontend_package =
     Package_helper.of_name_version t name version_from_url
@@ -1078,11 +1208,8 @@ let package_file t kind req =
   in
   let path = (Dream.path [@ocaml.warning "-3"]) req |> String.concat "/" in
   let* sidebar_data = Package_helper.package_sidebar_data ~kind t package in
-  let* maybe_search_index = Ocamlorg_package.search_index ~kind package in
-  let search_index_digest =
-    Option.map
-      (fun idx -> idx |> Digest.string |> Dream.to_base64url)
-      maybe_search_index
+  let* search_index_digest =
+    Package_helper.search_index_digest ~kind t package
   in
   let* maybe_doc = Ocamlorg_package.file ~kind package path in
   let</>? doc = maybe_doc in
@@ -1093,7 +1220,9 @@ let package_file t kind req =
        ~search_index_digest ~content_title:path ~toc frontend_package)
 
 let package_search_index t kind req =
-  let name = Ocamlorg_package.Name.of_string @@ Dream.param req "name" in
+  let</>? name =
+    Ocamlorg_package.Name.of_string_opt @@ Dream.param req "name"
+  in
   let version_from_url = Dream.param req "version" in
   let</>? package, _ = Package_helper.of_name_version t name version_from_url in
   let open Lwt.Syntax in

@@ -11,13 +11,24 @@ recommended_next_tutorials:
   - "lists"
 ---
 
-Before proceeding with this tutorial, please ensure you've installed OCaml and set up the environment, as described on the [install OCaml](/docs/installing-ocaml) page. After we take an introductory tour of OCaml's language features, we'll proceed to create our first OCaml project in the [Your First OCaml Program](/docs/your-first-program) tutorial.
+This tutorial introduces OCaml's basic features: values, expressions, lists, functions, pattern matching, and more.
 
-You need to have OCaml installed. No OCaml or functional programming knowledge is required; however, it is assumed the reader has some basic software development knowledge. This tutorial is probably not adapted to learn programming.
+No OCaml or any functional programming knowledge is required; however, it is assumed the reader has some basic software development knowledge.
+Please ensure you've installed OCaml and set up the environment, as described on the [Install OCaml](/docs/installing-ocaml) page.
 
-This document will cover how to use the REPL UTop to evaluate OCaml expressions interactively, understand the output, how to use pattern matching, call functions from OCaml standard library modules, and more. It also introduces you to lists, values, functions, integers, floats, references, and arrays.
+We recommend that you execute the examples we provide, and to experiment with them, to get a feel for coding in OCaml.
+To do this, you can use UTop (Universal Toplevel).
 
-Let's walk through the basics of OCaml by trying out different elements in an interactive manner. We recommend that you execute the examples we provide, or slight variants of them, in your own environment to get a feel for coding in OCaml.
+UTop allows users to interact with OCaml by reading and evaluating OCaml phrases, like expressions or value definitions, and printing the result on the screen. Use the `utop` command to run UTop. Exit it by pressing `Ctrl+D`. For more information, you can read the [Introduction to the OCaml Toplevel](/docs/toplevel-introduction).
+
+Some of the examples in this tour include comments. Comments in OCaml start with `(*` and end with `*)` and can be nested. Since they are ignored by OCaml, they can be used anywhere whitespace is permitted. When entering the code below into UTop, the comments can be left out. Here are some examples:
+
+```ocaml
+(* Here is a comment *)
+(* Outside of the nested comment is still a comment. (* Here is a nested comment *) Outside of the nested comment again. *)
+# 50 + (* A comment in between parts of an expression *) 50
+- : int = 100
+```
 
 <!--
 The goal of this tutorial is to provide the following capabilities:
@@ -35,8 +46,6 @@ The goal of this tutorial is to provide the following capabilities:
 - Call functions defined in modules of the OCaml standard library
 -->
 
-**Note**: We recommend that you try running the code snippets throughout this guide in an OCaml toplevel. You can run the toplevel using the `utop` command. Read the [Introduction to OCaml Toplevel](/docs/toplevel-introduction) to learn how to use it.
-
 ## Expressions and Definitions
 
 Let's start with a simple expression:
@@ -47,6 +56,8 @@ Let's start with a simple expression:
 
 In OCaml, everything has a value, and every value has a type. The above example says, “`50 * 50` is an expression that has type `int` (integer) and evaluates to `2500`.” Since it is an anonymous expression, the character `-` appears instead of a name.
 
+The double semicolon `;;` at the end tells the toplevel to evaluate and print the result of the given phrase.
+
 Here are examples of other primitive values and types:
 ```ocaml
 # 6.28;;
@@ -54,6 +65,9 @@ Here are examples of other primitive values and types:
 
 # "This is really disco!";;
 - : string = "This is really disco!"
+
+# 'a';; (* Note the single quotes *)
+- : char = 'a'
 
 # true;;
 - : bool = true
@@ -98,6 +112,16 @@ Bindings in OCaml are _immutable_, meaning that the value assigned to a name nev
 There is no overloading in OCaml, so inside a lexical scope, names have a single value, which only depends on its definition.
 
 Do not use dashes in names; use underscores instead. For example: `x_plus_y` works, `x-plus-y` does not.
+
+Bindings can be given special comments (sometimes called "docstrings") that editors and tooling treat as related to the binding. These are denoted by adding a second `*` to the opening of the comment. For example:
+
+```ocaml
+(** Feet in a mile *)
+let feets = 5280;;
+val feets : int = 5280
+```
+
+This is discussed further in [`odoc` for Authors: Special Comments](https://ocaml.github.io/odoc/odoc_for_authors.html#special_comments).
 
 Names can be defined locally, within an expression, using the `let … = … in …` syntax:
 ```ocaml
@@ -260,7 +284,7 @@ val range : int -> int -> int list = <fun>
 - : int list = [2; 3; 4; 5]
 ```
 
-As indicated by its type `int -> int -> int list`, the function `range` takes two integers as arguments and returns a list of integers as result. The first `int` parameter, `lo`, is the range's lower bound; the second `int` parameter, `hi`, is the higher bound. If `lo > hi`, the empty range is returned. That's the first branch of the `if … then … else` expression. Otherwise, the `lo` value is prepended to the list created by calling `range` itself; this is recursion. Preprending is achieved using `::`, the cons operator in OCaml. It constructs a new list by adding an element at the front of an existing list. Progress is made at each call; since `lo` has just been prepended at the head of the list, `range` is called with `lo + 1`. This can be visualised this way (this is not OCaml syntax):
+As indicated by its type `int -> int -> int list`, the function `range` takes two integers as arguments and returns a list of integers as result. The first `int` parameter, `lo`, is the range's lower bound; the second `int` parameter, `hi`, is the higher bound. If `lo > hi`, the empty range is returned. That's the first branch of the `if … then … else` expression. Otherwise, the `lo` value is prepended to the list created by calling `range` itself; this is recursion. Prepending is achieved using `::`, the cons operator in OCaml. It constructs a new list by adding an element at the front of an existing list. Progress is made at each call; since `lo` has just been prepended at the head of the list, `range` is called with `lo + 1`. This can be visualised this way (this is not OCaml syntax):
 
 ```
    range 2 5
@@ -329,7 +353,7 @@ Lists may be the most common data type in OCaml. They are ordered collections of
 The examples above read the following way:
 1. The empty list, nil
 1. A list containing the numbers 1, 2, and 3
-1. A list containing the Booleans `false`, `true`, and `false`. Repetitions are allowed.
+1. A list containing the Booleans `false`, `false`, and `true`. Repetitions are allowed.
 1. A list of lists
 
 Lists are defined as being either empty, written `[]`, or being an element `x` added at the front of another list `u`, which is written `x :: u` (the double colon operator is pronounced “cons”).
@@ -357,7 +381,7 @@ Here is how to write a recursive function that computes the length of a list:
 # let rec length u =
     match u with
     | [] -> 0
-    | _ :: v -> 1 + length v;;
+    | _ :: v -> 1 + length v;; (* _ doesn't define a name; it can't be used in the body *)
 val length : 'a list -> int = <fun>
 
 # length [1; 2; 3; 4];;

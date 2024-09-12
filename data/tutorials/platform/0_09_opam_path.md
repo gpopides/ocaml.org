@@ -14,7 +14,7 @@ The `opam env` command is used to set environment variables for a specific opam 
 
 Usage:
 ```bash
-$ eval $(opam env)
+$ eval "$(opam env)"
 ```
 
 This command evaluates the output of opam env and sets the necessary environment variables for the currently active switch. After running this command, you'll have access to the packages installed in the opam switch.
@@ -47,7 +47,7 @@ Ensure `direnv` is installed on your system. You can install it using a package 
 
 Add the following line to your shell profile (e.g., `~/.bashrc` or `~/.zshrc`):
 ```bash
-$ eval $(direnv hook <shell>)
+$ eval "$(direnv hook <shell>)"
 ```
 Replace `<shell>` with your actual shell type (`bash`, `zsh`, `fish`, etc.).
 
@@ -73,7 +73,7 @@ Now, whenever you navigate to your OCaml project directory, `direnv` will automa
 
 6. Example
 
-Suppose you have an OCaml project in folder `disco` and local opam switch is associated to it, and a `.envrc` file in that folder containing the following:
+Suppose you have an OCaml project in directory `disco` and local opam switch is associated to it, and a `.envrc` file in that directory containing the following:
 ```bash
 eval $(opam env)
 ```
@@ -81,7 +81,7 @@ After running `direnv allow`, `direnv` will handle the opam switch activation fo
 
 7. Messages from `direnv`
 
-Whenever entering or leaving a `direnv` managed folder, you will be informed of the the actions performed.
+Whenever entering or leaving a `direnv` managed directory, you will be informed of the the actions performed.
 
 On entrance:
 ```

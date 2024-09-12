@@ -1,3 +1,5 @@
+open Data_intf.Changelog
+
 type metadata = {
   title : string;
   tags : string list;
@@ -5,25 +7,13 @@ type metadata = {
   description : string option;
   changelog : string option;
 }
-[@@deriving of_yaml]
-
-type t = {
-  title : string;
-  date : string;
-  slug : string;
-  tags : string list;
-  changelog_html : string option;
-  body_html : string;
-  body : string;
-  authors : string list;
-}
 [@@deriving
-  stable_record ~version:metadata ~add:[ changelog; description ]
-    ~modify:[ authors ]
-    ~remove:[ slug; changelog_html; body_html; body; date ],
-    show { with_path = false }]
+  of_yaml,
+    stable_record ~version:t ~remove:[ changelog; description ]
+      ~modify:[ authors ]
+      ~add:[ slug; changelog_html; body_html; body; date ]]
 
-let of_metadata m = of_metadata m ~modify_authors:(Option.value ~default:[])
+let of_metadata m = metadata_to_t m ~modify_authors:(Option.value ~default:[])
 
 let re_date_slug =
   let open Re in
@@ -86,7 +76,7 @@ let decode (fname, (head, body)) =
     metadata
 
 let all () =
-  Utils.map_files decode "changelog/*/*.md"
+  Utils.map_md_files decode "changelog/*/*.md"
   |> List.sort (fun a b -> String.compare b.slug a.slug)
 
 module ChangelogFeed = struct
@@ -103,26 +93,15 @@ module ChangelogFeed = struct
   let create_feed () =
     let open Rss in
     () |> all
-    |> create_feed ~id:"changelog.xml" ~title:"OCaml Changelog" ~create_entry
-         ~span:365
+    |> create_entries ~create_entry ~days:365
+    |> entries_to_feed ~id:"changelog.xml" ~title:"OCaml Changelog"
     |> feed_to_string
 end
 
 let template () =
-  Format.asprintf
-    {|
-type t =
-  { title : string
-  ; slug : string
-  ; date : string
-  ; tags : string list
-  ; changelog_html : string option
-  ; body_html : string
-  ; body : string
-  ; authors : string list
-  }
-  
+  Format.asprintf {ocaml|
+include Data_intf.Changelog
 let all = %a
-|}
+|ocaml}
     (Fmt.brackets (Fmt.list pp ~sep:Fmt.semi))
     (all ())

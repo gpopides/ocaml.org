@@ -12,6 +12,7 @@ module Name : sig
   val compare : t -> t -> int
   val to_string : t -> string
   val of_string : string -> t
+  val of_string_opt : string -> t option
 
   module Map : OpamStd.MAP with type key := t
 end
@@ -150,6 +151,10 @@ val file :
 val search_index :
   kind:[< `Package | `Universe of string ] -> t -> string option Lwt.t
 (** Retrieve the search index of a given package. *)
+
+val search_index_digest :
+  kind:[< `Package | `Universe of string ] -> state -> t -> string option Lwt.t
+(** Retrieve the hash digest of the search index of a given package. *)
 
 val init : ?disable_polling:bool -> unit -> state
 (** [init ()] initialises the opam-repository state. By default

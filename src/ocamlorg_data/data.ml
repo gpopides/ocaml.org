@@ -59,9 +59,12 @@ module Event = struct
   include Event
 
   module RecurringEvent = struct
-    include Event.RecurringEvent
+    type t = recurring_event
 
-    let get_by_slug slug = List.find_opt (fun x -> String.equal slug x.slug) all
+    let all = recurring_event_all
+
+    let get_by_slug slug =
+      List.find_opt (fun (x : t) -> String.equal slug x.slug) all
   end
 
   let get_by_slug slug = List.find_opt (fun x -> String.equal slug x.slug) all
@@ -143,19 +146,6 @@ end
 
 module Planet = struct
   include Planet
-
-  module Post = struct
-    include Planet.Post
-  end
-
-  module LocalBlog = struct
-    include Planet.LocalBlog
-
-    let get_by_id id = List.find_opt (fun x -> String.equal x.source.id id) all
-  end
-
-  let local_posts =
-    List.concat_map (fun (src : LocalBlog.t) -> src.posts) LocalBlog.all
 end
 
 module Release = struct
@@ -232,34 +222,11 @@ module Tutorial = struct
     |> List.map fst
 end
 
-module Video = struct
-  include Video
+module Video = Video
 
-  let kind_to_string = function
-    | `Conference -> "conference"
-    | `Mooc -> "mooc"
-    | `Lecture -> "lecture"
+module Conference = struct
+  include Conference
 
-  let kind_of_string = function
-    | "conference" -> Ok `Conference
-    | "mooc" -> Ok `Mooc
-    | "lecture" -> Ok `Lecture
-    | s -> Error (`Msg ("Unknown proficiency type: " ^ s))
-
-  let get_by_slug slug = List.find_opt (fun x -> String.equal slug x.slug) all
-end
-
-module Watch = Watch
-
-module Workshop = struct
-  include Workshop
-
-  let role_to_string = function `Chair -> "chair" | `Co_chair -> "co-chair"
-
-  let role_of_string = function
-    | "chair" -> Ok `Chair
-    | "co-chair" -> Ok `Co_chair
-    | _ -> Error (`Msg "Unknown role type")
-
+  let all = Conference.all
   let get_by_slug slug = List.find_opt (fun x -> String.equal slug x.slug) all
 end

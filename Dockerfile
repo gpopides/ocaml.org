@@ -1,10 +1,10 @@
-FROM ocaml/opam:alpine-3.18-ocaml-4.14 as build
+FROM ocaml/opam:alpine-3.20-ocaml-5.2 as build
 
 # Install system dependencies
 RUN sudo apk update && sudo apk add --update libev-dev openssl-dev gmp-dev oniguruma-dev inotify-tools curl-dev autoconf
 
 # Branch freeze was opam-repo HEAD at the time of commit
-RUN cd opam-repository && git pull origin 8cc107f96e33a4601f7c39346eb19fbbe46486d3 && opam update
+RUN cd opam-repository && git pull origin c45f5bab71d3589f41f9603daca5acad14df0ab0 && opam update
 
 WORKDIR /home/opam
 
@@ -22,7 +22,7 @@ ENV OCAMLORG_REPO_PATH opam-repository
 ENV OCAMLORG_PKG_STATE_PATH package.state
 RUN touch package.state && ./init-cache package.state
 
-FROM alpine:3.18 as run
+FROM alpine:3.20 as run
 
 RUN apk update && apk add --update libev gmp git
 

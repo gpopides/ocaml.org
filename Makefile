@@ -6,12 +6,12 @@ all:
 
 .PHONY: deps
 deps: create_switch ## Install development dependencies
-	opam install -y ocamlformat=0.25.1 ocaml-lsp-server
+	opam install -y ocamlformat=0.26.2 ocaml-lsp-server
 	opam install -y --deps-only --with-test --with-doc .
 
 .PHONY: create_switch
 create_switch: ## Create switch and pinned opam repo
-	opam switch create . 4.14.1 --no-install --repos pin=git+https://github.com/ocaml/opam-repository#8cc107f96e33a4601f7c39346eb19fbbe46486d3
+	opam switch create . 5.2.0 --no-install --repos pin=git+https://github.com/ocaml/opam-repository#c45f5bab71d3589f41f9603daca5acad14df0ab0
 
 .PHONY: switch
 switch: deps ## Create an opam switch and install development dependencies
@@ -63,7 +63,7 @@ utop: ## Run a REPL and link with the project's libraries
 .PHONY: scrape
 scrape: ## Generate the po files
 	opam exec -- dune exec --root . tool/ood-gen/bin/scrape.exe planet
-	opam exec -- dune exec --root . tool/ood-gen/bin/watch_scrape.exe
+	opam exec -- dune exec --root . tool/ood-gen/bin/scrape.exe video
 
 .PHONY: docker
 docker: ## Generate docker container

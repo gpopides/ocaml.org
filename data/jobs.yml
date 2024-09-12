@@ -5,7 +5,7 @@ jobs:
       - France
     publication_date: 2023-09-26
     company: Dassault Systèmes
-    company_logo: https://www.3ds.com/assets/3ds-navigation/3DS_corporate-logo_blue.svg
+    company_logo: img/community/jobs/dassault_systemes_svg.svg
   - title: Software Engineer
     link: https://boards.eu.greenhouse.io/trilitech/jobs/4038961101
     locations:
@@ -13,14 +13,14 @@ jobs:
       - United-Kingdom
     publication_date: 2023-02-13
     company: Trilitech
-    company_logo: https://www.trili.tech/images/trilitech-logotype-black.svg
+    company_logo: img/community/jobs/trilitech_svg.svg
   - title: Spontaneous Application
     link: https://ocamlpro.com/jobs/
     locations:
       - France
     publication_date: 2023-02-10
     company: OCamlPro
-    company_logo: https://ocamlpro.com/assets/img/logo_ocamlpro.svg
+    company_logo: img/community/jobs/ocamlpro.svg.svg
   - title: Cryptography Engineer
     link: https://boards.greenhouse.io/o1labs/jobs/4023646004
     locations:
@@ -35,7 +35,7 @@ jobs:
       - France
       - India
     company: Tarides
-    company_logo: https://tarides.com/static/logo_tarides-52f91b59a8657d768e013129896b63e0.png
+    company_logo: img/community/jobs/tarides_svg.svg
   - title: OCaml Developer
     link: https://ahrefs.com/jobs/ocaml-developer
     locations:
@@ -43,71 +43,71 @@ jobs:
       - Singapore
     publication_date: 2023-05-10
     company: Ahrefs
-    company_logo: /logos/ahrefs.svg
+    company_logo: img/community/jobs/ahrefs_svg.svg
   - title: OCaml Developer
     link: https://functori.com/annonce-recrutement.pdf
     locations:
       - France
     publication_date: 2022-02-01
     company: Functori
-    company_logo: https://functori.com/assets/img/brand/functori_logotype_square.svg
+    company_logo: img/community/jobs/functori_svg.svg
   - title: Build System Engineer
     link: https://www.janestreet.com/join-jane-street/position/4274814002/
     locations:
       - United-Kingdom
     company: Jane Street
-    company_logo: /logos/janestreet.svg
+    company_logo: img/community/jobs/jane_street_svg.svg
   - title: Software Engineer
     link: https://www.lexifi.com/careers/software_engineer/
     locations:
       - France
     publication_date: 2021-04-22
     company: LexiFi
-    company_logo: https://thewealthmosaic.s3.amazonaws.com/media/Logo_Lexifi.png
+    company_logo: img/community/jobs/lexifi_svg.svg
   - title: OCaml Programmer
     link: https://solvuu.com/company
     locations:
       - Remote
     company: Solvuu
-    company_logo: https://solvuu.com/static/media/logo-color.92a01b9f.svg
+    company_logo: img/community/jobs/solvuu.svg.svg
   - title: Senior Software Engineer
     link: https://www.simcorp.com/en/career/find-a-job/senior-software-engineer--c-ocaml-r203826
     locations:
       - Poland
     company: SimCorp
-    company_logo: https://www.simcorp.com/dist/global/images/simcorp-logo-md.svg
+    company_logo: img/community/jobs/simcorp_svg.svg
   - title: Software Engineer
     link: https://www.simcorp.com/en/career/find-a-job/software-engineer--c-ocaml-r203358
     locations:
       - Ukraine
     company: SimCorp
-    company_logo: https://www.simcorp.com/dist/global/images/simcorp-logo-md.svg
+    company_logo: img/community/jobs/simcorp_svg.svg
   - title: Software Engineer
     link: https://www.simcorp.com/en/career/find-a-job/software-engineer---and-ocaml-r203759
     locations:
       - Denmark
     company: SimCorp
-    company_logo: https://www.simcorp.com/dist/global/images/simcorp-logo-md.svg
+    company_logo: img/community/jobs/simcorp_svg.svg
   - title: Senior Software Engineer
     link: https://www.simcorp.com/en/career/find-a-job/senior-software-engineer--c-ocaml-r203357
     locations:
       - Ukraine
     company: SimCorp
-    company_logo: https://www.simcorp.com/dist/global/images/simcorp-logo-md.svg
+    company_logo: img/community/jobs/simcorp_svg.svg
   - title: AI Pharma Developer
     link: https://www.nobiastx.com/careers
     locations:
       - United States
     publication_date: 2022-12-02
     company: Nobias Therapeutics
-    company_logo: https://uploads-ssl.webflow.com/61532e32ca094ababec1dbc2/61a7150d2aebf25b6d9d1a35_nobias%20logo%20-%20transparent%20background.png
+    company_logo: img/community/jobs/nobias_svg.svg
   - title: OCaml Developer
     link: https://serokell.io/jobs/ocaml-new
     locations:
       - Remote
     publication_date: 2023-02-21
     company: Serokell
-    company_logo: https://serokell.io/static/images/common/logo.svg
+    company_logo: img/community/jobs/serokell_svg.svg
   - title: Computer Scientist
     link: https://caisar-platform.com/positions
     locations:
@@ -129,21 +129,21 @@ jobs:
       - Remote
     publication_date: 2023-03-06
     company: TrustInSoft
-    company_logo: https://trust-in-soft.com/wp-content/uploads/sites/13/2021/11/logo.png
+    company_logo: img/community/jobs/trustinsoft_svg.svg
   - title: Research engineer in software development
     link: https://www.irif.fr/postes/admin#ingenieur_e_de_recherche_en_developpement_logiciel
     locations:
       - Paris, France
     publication_date: 2023-03-06
     company: IRIF, Université Paris-Cité
-    company_logo: https://www.irif.fr/_media/irif_horizontal_noborder.svg
+    company_logo: img/community/jobs/IRIF_university_city_paris_svg.svg
   - title: XenServer Toolstack - Software Engineer
     link: https://careers.cloud.com/jobs/software-engineer-xenserver-toolstack-cambridge-cambridgeshire-united-kingdom-79cbbe38-5430-4596-b39d-ffb4ed8a0f83
     locations:
       - Cambridge, United-Kingdom
     publication_date: 2024-05-07
-    company: XenServer, Cloud Software Group
-    company_logo: https://www.xenserver.com/content/dam/xenserver/images/xenserver-full-color-rgb.svg
+    company: XenServer
+    company_logo: img/community/jobs/xenserver_svg.svg
   - title: Software Engineer
     link: https://base.routine.co/jobs/positions/backend-software-engineer
     locations:
@@ -151,4 +151,4 @@ jobs:
       - Remote
     publication_date: 2024-04-08
     company: Routine
-    company_logo: https://assets.routine.co/logo.svg
+    company_logo: img/community/jobs/routine_svg.svg

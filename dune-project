@@ -1,4 +1,4 @@
-(lang dune 3.6)
+(lang dune 3.15)
 
 (name ocamlorg)
 
@@ -67,7 +67,6 @@
   olinkcheck
   ; tools/ood-gen
   ppx_deriving_yaml
-  ppx_show
   ppx_stable
   ezjsonm
   lambdasoup

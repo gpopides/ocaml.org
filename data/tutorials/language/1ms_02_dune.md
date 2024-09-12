@@ -4,6 +4,9 @@ title: Libraries With Dune
 description: >
   Dune provides several means to arrange modules into libraries. We look at Dune's mechanisms for structuring projects with libraries that contain modules.
 category: "Module System"
+prerequisite_tutorials:
+  - modules
+  - functors
 ---
 
 ## Introduction
@@ -11,8 +14,6 @@ category: "Module System"
 Dune provides several means to arrange modules into libraries. We look at Dune's mechanisms for structuring projects with libraries that contain modules.
 
 This tutorial uses the [Dune](https://dune.build) build tool. Make sure you have version 3.7 or later installed.
-
-**Requirements**: [Modules](/docs/modules) and [Functors](/docs/modules).
 
 ## Minimum Project Setup
 
@@ -38,7 +39,7 @@ This file contains the global project configuration. It's kept almost to the min
   (public_name nube))
 ```
 
-Each folder that requires some sort of build must contain a `dune` file. The `executable` stanza means an executable program is built.
+Each directory that requires some sort of build must contain a `dune` file. The `executable` stanza means an executable program is built.
 - The `name cloud` stanza means the file `cloud.ml` contains the executable.
 - The `public_name nube` stanza means the executable is made available using the name `nube`.
 
@@ -68,7 +69,7 @@ Cumulonimbus (Cb)
 ```
 
 
-Here is the folder contents:
+Here is the directory contents:
 ```shell
 $ tree
 .
@@ -78,7 +79,7 @@ $ tree
 └── wmo.ml
 ```
 
-Dune stores the files it creates in a folder named `_build`. In a project managed using Git, the `_build` folder should be ignored
+Dune stores the files it creates in a directory named `_build`. In a project managed using Git, the `_build` directory should be ignored
 ```shell
 $ echo _build >> .gitignore
 ```
@@ -120,12 +121,12 @@ The `dune describe` command allows having a look at the project's module structu
 <!--This contrasts with the `struct ... end` syntax where modules are aggregated top-down by nesting submodules into container modules. -->
 In OCaml, a library is a collection of modules. By default, when Dune builds a library, it wraps the bundled modules into a module. This allows having several modules with the same name, inside different libraries, in the same project. That feature is known as [_namespaces_](https://en.wikipedia.org/wiki/Namespace) for module names. This is similar to what module do for definitions; they avoid name clashes.
 
-Dune creates libraries from folders. Let's look at an example. Here the folder is `lib`:
+Dune creates libraries from directories. Let's look at an example. Here the directory is `lib`:
 ```shell
 $ mkdir lib
 ```
 
-The `lib` folder is populated with the following files.
+The `lib` directory is populated with the following files:
 
 **`lib/dune`**
 ```lisp
@@ -152,7 +153,7 @@ val nimbus : string
 let nimbus = "Nimbostratus (Ns)"
 ```
 
-All the modules found in the `lib` folder are bundled into the `Wmo` module. This module is the same as what we had in the `wmo.ml` file. To avoid redundancy, we delete it:
+All the modules found in the `lib` directory are bundled into the `Wmo` module. This module is the same as what we had in the `wmo.ml` file. To avoid redundancy, we delete it:
 ```shell
 $ rm wmo.ml
 ```
@@ -168,8 +169,8 @@ We update the `dune` file building the executable to use the library as a depend
 ```
 
 **Observations**:
-* Dune creates a module `Wmo` from the contents of folder `lib`.
-* The folder's name (here `lib`) is irrelevant.
+* Dune creates a module `Wmo` from the contents of directory `lib`.
+* The directory's name (here `lib`) is irrelevant.
 * The library name appears uncapitalised (`wmo`) in `dune` files:
   - In its definition, in `lib/dune`
   - When used as a dependency in `dune`
@@ -193,7 +194,7 @@ Here is how to make sense of these module definitions:
 
 Run `dune exec nube` to see that the behaviour of the program is the same as in the previous section.
 
-When a library folder contains a wrapper module (here `wmo.ml`), it is the only one exposed. All other file-based modules from that folder that do not appear in the wrapper module are private.
+When a library directory contains a wrapper module (here `wmo.ml`), it is the only one exposed. All other file-based modules from that directory that do not appear in the wrapper module are private.
 
 Using a wrapper file makes several things possible:
 - Have different public and internal names, `module CumulusCloud = Cumulus`
@@ -204,7 +205,7 @@ Using a wrapper file makes several things possible:
 
 ## Include Subdirectories
 
-By default, Dune builds a library from the modules found in the same folder as the `dune` file, but it doesn't look into subfolders. It is possible to change this behaviour.
+By default, Dune builds a library from the modules found in the same directory as the `dune` file, but it doesn't look into subdirectories. It is possible to change this behaviour.
 
 In this example, we create subdirectories and move files there.
 ```shell
@@ -233,14 +234,14 @@ module Stratus = Stratus.M
 
 Run `dune exec nube` to see that the behaviour of the program is the same as in the two previous sections.
 
-The `include_subdirs qualified` stanza works recursively, except on subfolders containing a `dune` file. See the [Dune](https://dune.readthedocs.io/en/stable/dune-files.html#include-subdirs) [documentation](https://github.com/ocaml/dune/issues/1084) for [more](https://discuss.ocaml.org/t/upcoming-dune-feature-include-subdirs-qualified) on this [topic](https://github.com/ocaml/dune/tree/main/test/blackbox-tests/test-cases/include-qualified).
+The `include_subdirs qualified` stanza works recursively, except on subdirectories containing a `dune` file. See the [Dune](https://dune.readthedocs.io/en/stable/dune-files.html#include-subdirs) [documentation](https://github.com/ocaml/dune/issues/1084) for [more](https://discuss.ocaml.org/t/upcoming-dune-feature-include-subdirs-qualified) on this [topic](https://github.com/ocaml/dune/tree/main/test/blackbox-tests/test-cases/include-qualified).
 
 <!--
 ## Starting a Project from a Single File
 
 It is possible to start an empty Dune project from a single file.
 
-Create a fresh folder.
+Create a fresh directory.
 ```shell
 $ mkdir foo.dir; cd foo.dir
 ```
@@ -258,8 +259,43 @@ This is sufficient for `dune build` to work. It will not build anything.
 - `(package (name foo) (allow_empty))` this means we're creating an Opam package named `foo` and we allow it to be empty
 - `(generate_opam_files)` we ask Dune to setup the opam configuration automatically
 
-Here `foo` is the project name and `foo.dir` is its container folder, the names don't have to be the same.
+Here `foo` is the project name and `foo.dir` is its container directory, the names don't have to be the same.
 -->
+
+## Remove Duplicated Interfaces
+
+In the previous stages, interfaces were duplicated. In the
+“[Libraries](#libraries)” section of this tutorial, two files are the same:
+`lib/cumulus.mli` and `lib/status.mli`. Later, in the “[Include
+Subdirectories](#include-subdirectories)” section, the files `lib/cumulus/m.mli`
+and `lib/status/m.mli` are also the same.
+
+Here is a possible way to fix this using named module types (also known as
+signatures). First, delete the files `lib/cumulus/m.mli` and `lib/status/m.mli`.
+Then modify module `Wmo` interface and implementation.
+
+**`wmo.mli`**
+```ocaml
+module type Nimbus = sig
+  val nimbus : string
+end
+
+module Cumulus : Nimbus
+module Stratus : Nimbus
+```
+
+**`wmo.ml`**
+```ocaml
+module type Nimbus = sig
+  val nimbus : string
+end
+
+module Cumulus = Cumulus.M
+module Stratus = Stratus.M
+```
+
+This result is the same, except implementations `Cumulus.M` and `Stratus.M` are
+explicitly bound to the same interface, defined in module `Wmo`.
 
 ## Conclusion
 

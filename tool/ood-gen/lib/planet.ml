@@ -1,325 +1,114 @@
 open Ocamlorg.Import
-
-type source = {
-  id : string;
-  name : string;
-  url : string;
-  description : string;
-  disabled : bool;
-}
-[@@deriving show { with_path = false }]
-
-type post = {
-  title : string;
-  source : source;
-  url : string option;
-      (* if the post has a URL, it's a link to an external post, otherwise it's
-         hosted on ocaml.org *)
-  slug : string;
-  description : string option;
-  authors : string list;
-  date : string;
-  preview_image : string option;
-  body_html : string;
-}
-[@@deriving show { with_path = false }]
-
-type local_blog = { source : source; posts : post list; rss_feed : string }
-[@@deriving show { with_path = false }]
-
-module Local = struct
-  (* blogs hosted on ocaml.org, e.g. Opam blog *)
-
-  module Source = struct
-    type t = { id : string; name : string; description : string }
-    [@@deriving yaml]
-
-    type sources = t list [@@deriving yaml]
-
-    let all () : source list =
-      let file = "planet-local-blogs.yml" in
-      let result =
-        let ( let* ) = Result.bind in
-        let* yaml = Utils.yaml_file file in
-        let* sources =
-          sources_of_yaml yaml |> Result.map_error (Utils.where file)
-        in
-        Ok
-          (sources
-          |> List.map (fun s ->
-                 {
-                   id = s.id;
-                   name = s.name;
-                   url = "https://ocaml.org/blog/" ^ s.id;
-                   description = s.description;
-                   disabled = false;
-                 }))
-      in
-      result
-      |> Result.get_ok ~error:(fun (`Msg msg) ->
-             Exn.Decode_error (file ^ ": " ^ msg))
-  end
-
-  module Post = struct
-    type metadata = {
-      title : string;
-      description : string;
-      date : string;
-      preview_image : string option;
-      authors : string list option;
-    }
-    [@@deriving yaml]
-
-    let all_sources = Source.all ()
-
-    let of_metadata ~slug ~source ~body_html m =
-      {
-        title = m.title;
-        source;
-        slug;
-        url = None;
-        description = Some m.description;
-        authors = Option.value ~default:[] m.authors;
-        date = m.date;
-        preview_image = m.preview_image;
-        body_html;
-      }
-
-    let decode (fpath, (head, body_md)) =
-      let metadata =
-        metadata_of_yaml head |> Result.map_error (Utils.where fpath)
-      in
-      let body_html =
-        body_md |> Markdown.Content.of_string
-        |> Markdown.Content.render ~syntax_highlighting:true
-      in
-      let source, slug =
-        match Str.split (Str.regexp_string "/") fpath with
-        | [ _; second; slug ] ->
-            let source =
-              match
-                List.find_opt (fun (s : source) -> s.id = second) all_sources
-              with
-              | Some source -> source
-              | None -> failwith ("No source found for: " ^ fpath)
-            in
-            let slug = String.sub slug 0 (String.length slug - 3) in
-            (source, slug)
-        | _ ->
-            failwith
-              ("Trying to determine the source for " ^ fpath
-             ^ " but the path is not long enough (should start with \
-                planet-local-blogs/SOURCE_NAME/...)")
-      in
-      metadata
-      |> Result.map_error (Utils.where fpath)
-      |> Result.map (of_metadata ~slug ~source ~body_html)
-
-    let all () : post list =
-      Utils.map_files decode "planet-local-blogs/*/*.md"
-      |> List.sort (fun (a : post) b -> String.compare b.date a.date)
-  end
-end
-
-module External = struct
-  (* external RSS feeds that we aggregate - they will all be scraped by the
-     scrape.yml workflow *)
-
-  module Source = struct
-    type t = {
-      id : string;
-      name : string;
-      url : string;
-      disabled : bool option;
-    }
-    [@@deriving yaml]
-
-    type sources = t list [@@deriving yaml]
-
-    let all () : source list =
-      let file = "planet-sources.yml" in
-      let result =
-        let ( let* ) = Result.bind in
-        let* yaml = Utils.yaml_file file in
-        let* sources =
-          sources_of_yaml yaml |> Result.map_error (Utils.where file)
-        in
-        Ok
-          (sources
-          |> List.map (fun { id; name; url; disabled } ->
-                 {
-                   id;
-                   name;
-                   url;
-                   description = "";
-                   disabled = Option.value ~default:false disabled;
-                 }))
-      in
-      result
-      |> Result.get_ok ~error:(fun (`Msg msg) ->
-             Exn.Decode_error (file ^ ": " ^ msg))
-  end
-
-  module Post = struct
-    type source_on_external_post = { name : string; url : string }
-    [@@deriving yaml]
-
-    type metadata = {
-      title : string;
-      description : string option;
-      url : string;
-      date : string;
-      preview_image : string option;
-      authors : string list option;
-      source : source_on_external_post option;
-    }
-    [@@deriving yaml]
-
-    let all_sources = Source.all ()
-
-    let of_metadata ~source ~body_html m =
-      {
-        title = m.title;
-        source =
-          (match source with
-          | Ok s -> s
-          | Error (`Msg e) -> (
-              match m.source with
-              | Some { name; url } ->
-                  { id = ""; name; url; description = ""; disabled = false }
-              | None ->
-                  failwith
-                    (e ^ " and there is no source defined in the markdown file")
-              ));
-        url = Some m.url;
-        slug = "";
-        description = m.description;
-        authors = Option.value ~default:[] m.authors;
-        date = m.date;
-        preview_image = m.preview_image;
-        body_html;
-      }
-
-    let pp_meta ppf v =
-      Fmt.pf ppf {|---
-%s---
-|}
-        (metadata_to_yaml v |> Yaml.to_string
-        |> Result.get_ok ~error:(fun (`Msg m) -> Exn.Decode_error m))
-
-    let decode (fpath, (head, body_md)) =
-      let metadata =
-        metadata_of_yaml head |> Result.map_error (Utils.where fpath)
-      in
-      let body_html =
-        body_md |> Markdown.Content.of_string
-        |> Markdown.Content.render ~syntax_highlighting:true
-      in
-      let source =
-        match Str.split (Str.regexp_string "/") fpath with
-        | _ :: second :: _ -> (
-            match
-              List.find_opt (fun (s : source) -> s.id = second) all_sources
-            with
-            | Some source -> Ok source
-            | None -> Error (`Msg ("No source found for: " ^ fpath)))
-        | _ ->
-            failwith
-              ("Trying to determine the source for " ^ fpath
-             ^ " but the path is not long enough (should start with \
-                planet/SOURCE_NAME/...)")
-      in
-      metadata
-      |> Result.map_error (Utils.where fpath)
-      |> Result.map (of_metadata ~source ~body_html)
-
-    let all () : post list =
-      Utils.map_files decode "planet/*/*.md"
-      |> List.sort (fun (a : post) b -> String.compare b.date a.date)
-  end
-end
-
-let feed_authors source authors =
-  match List.map Syndic.Atom.author authors with
-  | x :: xs -> (x, xs)
-  | [] -> (Syndic.Atom.author source.name, [])
-
-module LocalBlog = struct
-  let create_entry (post : post) =
-    let content = Syndic.Atom.Html (None, post.body_html) in
-    let id =
-      Uri.of_string
-        ("https://ocaml.org/blog/" ^ post.source.id ^ "/" ^ post.slug)
-    in
-    let authors = feed_authors post.source post.authors in
-    let updated = Syndic.Date.of_rfc3339 post.date in
-    Syndic.Atom.entry ~content ~id ~authors ~title:(Syndic.Atom.Text post.title)
-      ~updated
-      ~links:[ Syndic.Atom.link id ]
-      ()
-
-  let create_feed source posts =
-    let open Rss in
-    posts
-    |> create_feed
-         ~id:("blog/" ^ source.id ^ "/feed.xml")
-         ~title:(source.name ^ " @ OCaml.org")
-         ~create_entry
-    |> feed_to_string
-
-  let all () =
-    let all_posts = Local.Post.all () in
-    Local.Source.all ()
-    |> List.map (fun (source : source) ->
-           let posts =
-             all_posts
-             |> List.filter (fun (p : post) -> p.source.id = source.id)
-           in
-           { source; posts; rss_feed = create_feed source posts })
-end
+open Data_intf.Planet
 
 let all () =
-  Local.Post.all () @ External.Post.all ()
-  |> List.sort (fun a b -> String.compare b.date a.date)
+  let external_posts =
+    Blog.Post.all () |> List.map (fun (p : Data_intf.Blog.Post.t) -> BlogPost p)
+  in
+  let videos =
+    Video.all () |> List.map (fun (v : Data_intf.Video.t) -> Video v)
+  in
+  external_posts @ videos
+  |> List.sort (fun (a : entry) (b : entry) ->
+         String.compare (date_of_post b) (date_of_post a))
 
 let template () =
-  Format.asprintf
-    {|
-type source = { id : string; name : string; url : string ; description : string; disabled : bool }
-
-module Post = struct
-  type t =
-    { title : string
-    ; url : string option
-    ; slug : string
-    ; source : source
-    ; description : string option
-    ; authors : string list
-    ; date : string
-    ; preview_image : string option
-    ; body_html : string
-    }
-    
-  let all = %a
-end
-
-module LocalBlog = struct
-  type t =
-  { source : source
-  ; posts : Post.t list
-  ; rss_feed : string
-  }
-
-  let all = %a
-end
-|}
-    (Fmt.brackets (Fmt.list pp_post ~sep:Fmt.semi))
+  Format.asprintf {ocaml|
+include Data_intf.Planet
+let all = %a
+|ocaml}
+    (Fmt.brackets (Fmt.list pp_entry ~sep:Fmt.semi))
     (all ())
-    (Fmt.brackets (Fmt.list pp_local_blog ~sep:Fmt.semi))
-    (LocalBlog.all ())
 
 module GlobalFeed = struct
-  let create_entry (post : post) =
+  let feed_authors (source : Data_intf.Blog.source) authors =
+    match List.map Syndic.Atom.author authors with
+    | x :: xs -> (x, xs)
+    | [] -> (Syndic.Atom.author source.name, [])
+
+  let create_events_announcement_entry () =
+    let now = Ptime.of_float_s (Unix.gettimeofday ()) |> Option.get in
+    let year, month, day = now |> Ptime.to_date in
+
+    let start =
+      Ptime.of_date (year, month, min 22 ((day / 7 * 7) + 1)) |> Option.get
+      (* choose a day between 1, 8, 15, 22 so that reminders are sent out four
+         times a month*)
+    in
+    let start_rfc3999 = start |> Ptime.to_rfc3339 in
+
+    let events =
+      let cutoff =
+        Ptime.add_span start (Ptime.Span.v (90, 0L))
+        |> Option.get |> Ptime.to_rfc3339
+      in
+      Event.all ()
+      |> List.filter (fun (e : Data_intf.Event.t) ->
+             String.compare e.starts.yyyy_mm_dd start_rfc3999 > 0
+             && String.compare e.starts.yyyy_mm_dd cutoff < 0)
+    in
+
+    match events with
+    | [] -> None
+    | _ ->
+        let human_readable_date =
+          Format.sprintf "%s %d, %d"
+            (Syndic.Date.month start |> Syndic.Date.string_of_month)
+            (Syndic.Date.day start) (Syndic.Date.year start)
+        in
+        let authors = (Syndic.Atom.author "OCaml Events", []) in
+        let render_single_event (event : Data_intf.Event.t) =
+          let textual_location = event.city ^ ", " ^ event.country in
+          let start_date_str =
+            event.starts.yyyy_mm_dd ^ "T"
+            ^ Option.value ~default:"00:00" event.starts.utc_hh_mm
+            ^ ":00Z"
+          in
+          let start_date = Syndic.Date.of_rfc3339 start_date_str in
+          let human_readable_date =
+            Format.sprintf "%s %d, %d"
+              (Syndic.Date.month start_date |> Syndic.Date.string_of_month)
+              (Syndic.Date.day start_date)
+              (Syndic.Date.year start_date)
+          in
+          let content =
+            Format.sprintf {|<li><a href="%s">%s // %s // %s</a></li>
+|}
+              event.url event.title textual_location human_readable_date
+          in
+          content
+        in
+
+        let content =
+          events
+          |> List.map render_single_event
+          |> String.concat "\n"
+          |> Format.sprintf {|<ul>%s</ul>|}
+        in
+
+        let id =
+          let id_date_str =
+            Format.sprintf "%s-%d-%d"
+              (Syndic.Date.month start |> Syndic.Date.string_of_month)
+              (Syndic.Date.day start) (Syndic.Date.year start)
+          in
+
+          Uri.of_string ("https://ocaml.org/events#" ^ id_date_str)
+        in
+        Some
+          (Syndic.Atom.entry ~id ~authors
+             ~title:
+               (Syndic.Atom.Text
+                  ("Upcoming OCaml Events (" ^ human_readable_date
+                 ^ " and onwards)"))
+             ~updated:start
+             ~links:
+               [ Syndic.Atom.link (Uri.of_string "https://ocaml.org/events") ]
+             ~categories:[ Syndic.Atom.category "events" ]
+             ~content:(Syndic.Atom.Html (None, content))
+             ())
+
+  let entry_of_post (post : Data_intf.Blog.Post.t) =
     let content = Syndic.Atom.Html (None, post.body_html) in
     let url = Uri.of_string post.source.url in
     let source : Syndic.Atom.source =
@@ -329,12 +118,7 @@ module GlobalFeed = struct
         ?updated:None ?categories:None ?contributors:None ?generator:None
         ?icon:None ?logo:None ?rights:None ?subtitle:None
     in
-    let id =
-      Uri.of_string
-        (match post.url with
-        | Some url -> url
-        | None -> "https://ocaml.org/blog/" ^ post.source.id ^ "/" ^ post.slug)
-    in
+    let id = Uri.of_string post.url in
     let authors = feed_authors post.source post.authors in
     let updated = Syndic.Date.of_rfc3339 post.date in
     Syndic.Atom.entry ~content ~source ~id ~authors
@@ -342,77 +126,46 @@ module GlobalFeed = struct
       ~links:[ Syndic.Atom.link id ]
       ()
 
+  let entry_of_video (video : Data_intf.Video.t) =
+    let url = Uri.of_string video.url in
+    let source : Syndic.Atom.source =
+      Syndic.Atom.source ~authors:[]
+        ~id:(Uri.of_string video.source_link)
+        ~title:(Syndic.Atom.Text video.source_title)
+        ~links:[ Syndic.Atom.link (Uri.of_string video.source_link) ]
+        ?updated:None ?categories:None ?contributors:None ?generator:None
+        ?icon:None ?logo:None ?rights:None ?subtitle:None
+    in
+    let content = Syndic.Atom.Text video.description in
+    let id = url in
+    let authors =
+      ( Syndic.Atom.author
+          ~uri:(Uri.of_string video.author_uri)
+          video.author_name,
+        [] )
+    in
+    let updated = Syndic.Date.of_rfc3339 video.published in
+    Syndic.Atom.entry ~content ~source ~id ~authors
+      ~title:(Syndic.Atom.Text video.title) ~updated
+      ~links:[ Syndic.Atom.link id ]
+      ()
+
+  let create_entry (post : entry) =
+    match post with
+    | BlogPost post -> entry_of_post post
+    | Video video -> entry_of_video video
+
   let create_feed () =
     let open Rss in
-    () |> all
-    |> create_feed ~id:"feed.xml" ~title:"The OCaml Planet" ~create_entry
-         ~span:90
-    |> feed_to_string
-end
+    let entries = all () |> create_entries ~create_entry ~days:90 in
 
-module Scraper = struct
-  let fetch_feed (id, source) =
-    try Some (id, River.fetch source)
-    with e ->
-      print_endline
-        (Printf.sprintf "failed to scrape %s: %s" id (Printexc.to_string e));
-      None
-
-  let scrape_post ~source_id (post : River.post) =
-    let title = River.title post in
-    let slug = Utils.slugify title in
-    let source_path = "data/planet/" ^ source_id in
-    let output_file = source_path ^ "/" ^ slug ^ ".md" in
-    if not (Sys.file_exists output_file) then
-      let url = River.link post in
-      let date = River.date post |> Option.map Syndic.Date.to_rfc3339 in
-      match (url, date) with
-      | None, _ ->
-          print_endline
-            (Printf.sprintf "skipping %s/%s: item does not have a url" source_id
-               slug)
-      | _, None ->
-          print_endline
-            (Printf.sprintf "skipping %s/%s: item does not have a date"
-               source_id slug)
-      | Some url, Some date ->
-          if not (Sys.file_exists source_path) then Sys.mkdir source_path 0o775;
-          let oc = open_out output_file in
-          let content = River.content post in
-          let url = String.trim (Uri.to_string url) in
-          let preview_image = River.seo_image post in
-          let description = River.meta_description post in
-          let author = River.author post in
-          let metadata : External.Post.metadata =
-            {
-              title;
-              url;
-              date;
-              preview_image;
-              description;
-              authors = Some [ author ];
-              source = None;
-            }
-          in
-          let s =
-            Format.asprintf "%a\n%s\n" External.Post.pp_meta metadata content
-          in
-          Printf.fprintf oc "%s" s;
-          close_out oc
-
-  let scrape_feed (id, (feed : River.feed)) =
-    let posts = River.posts [ feed ] in
-    posts |> List.iter (scrape_post ~source_id:id)
-
-  let scrape () =
-    let sources = External.Source.all () in
-    sources
-    |> List.filter (fun ({ disabled; _ } : source) -> not disabled)
-    |> List.map
-         (fun
-           ({ id; url; name; description = _; disabled = _ } : source)
-           :
-           (string * River.source)
-         -> (id, { name; url }))
-    |> List.filter_map fetch_feed |> List.iter scrape_feed
+    match create_events_announcement_entry () with
+    | None ->
+        entries
+        |> entries_to_feed ~id:"planet.xml" ~title:"The OCaml Planet"
+        |> feed_to_string
+    | Some event_announcements ->
+        entries @ [ event_announcements ]
+        |> entries_to_feed ~id:"planet.xml" ~title:"The OCaml Planet"
+        |> feed_to_string
 end
